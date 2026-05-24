@@ -11,12 +11,13 @@ class Allergie(models.Model):
     )
 
     patient        = models.ForeignKey(Patients, on_delete=models.CASCADE, related_name='allergies')
-    nom            = models.CharField(max_length=150, help_text="Nom de l'allergène")
+    nom            = models.CharField(max_length=150)
     reaction       = models.CharField(max_length=20, choices=REACTION_CHOICES, default='LEGERE')
     description    = models.TextField(blank=True)
     date_detection = models.DateField(null=True, blank=True)
 
     class Meta:
+        db_table            = 'medical_allergie'        # ← matches SQL table name
         verbose_name        = "Allergie"
         verbose_name_plural = "Allergies"
         ordering            = ['-date_detection']
@@ -31,6 +32,8 @@ class Antecedent(models.Model):
         ('CHIRURGICAL',  'Chirurgical'),
         ('FAMILIAL',     'Familial'),
         ('AUTRE',        'Autre'),
+        ('NEUROLOGIQUE', 'Neurologique'),
+        ('GENETIQUE',    'Génétique'),
     )
 
     patient          = models.ForeignKey(Patients, on_delete=models.CASCADE, related_name='antecedents')
@@ -39,6 +42,7 @@ class Antecedent(models.Model):
     date_declaration = models.DateField(null=True, blank=True)
 
     class Meta:
+        db_table            = 'medical_antecedent'      # ← matches SQL table name
         verbose_name        = "Antécédent"
         verbose_name_plural = "Antécédents"
         ordering            = ['-date_declaration']

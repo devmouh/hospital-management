@@ -10,6 +10,8 @@ class DocumentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'patient', 'consultation',
             'nom_fichier', 'type_doc', 'type_doc_display',
-            'fichier', 'date_upload',
+            'fichier', 'url_stockage', 'date_upload',
+            # uploaded_by is set server-side via serializer.save(uploaded_by=request.user)
+            # it is intentionally not writable by the client
         ]
         read_only_fields = ['id', 'date_upload', 'type_doc_display']

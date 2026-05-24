@@ -8,7 +8,6 @@ from .serializers import MessageSerializer, SendMessageSerializer
 
 
 class InboxView(APIView):
-    """GET /api/messages/inbox/ — all messages received by the logged-in user."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -17,7 +16,6 @@ class InboxView(APIView):
 
 
 class SentView(APIView):
-    """GET /api/messages/sent/ — all messages sent by the logged-in user."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -26,7 +24,6 @@ class SentView(APIView):
 
 
 class SendMessageView(APIView):
-    """POST /api/messages/send/ — send a message to another user."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -38,7 +35,6 @@ class SendMessageView(APIView):
 
 
 class ConversationView(APIView):
-    """GET /api/messages/conversation/<user_id>/ — full conversation with one user."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request, user_id):
@@ -46,13 +42,11 @@ class ConversationView(APIView):
             Q(expediteur=request.user,   destinataire_id=user_id) |
             Q(expediteur_id=user_id, destinataire=request.user)
         ).order_by('date_envoi')
-        # mark received messages as read
         messages.filter(destinataire=request.user, lu=False).update(lu=True)
         return Response(MessageSerializer(messages, many=True).data)
 
 
 class UnreadCountView(APIView):
-    """GET /api/messages/unread-count/ — number of unread messages."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -61,7 +55,6 @@ class UnreadCountView(APIView):
 
 
 class MarkAsReadView(APIView):
-    """PATCH /api/messages/<id>/read/ — mark a single received message as read."""
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
@@ -75,16 +68,13 @@ class MarkAsReadView(APIView):
 
 
 class DeleteMessageView(APIView):
-    """DELETE /api/messages/<id>/ — delete a message you sent or received."""
     permission_classes = [IsAuthenticated]
 
     def delete(self, request, pk):
         try:
             message = Message.objects.get(
+                Q(expediteur=request.user) | Q(destinataire=request.user),
                 pk=pk,
-                # user must be either sender or receiver
-                **{'expediteur': request.user} if Message.objects.filter(pk=pk, expediteur=request.user).exists()
-                else {'destinataire': request.user}
             )
         except Message.DoesNotExist:
             return Response({'detail': 'Not found or not allowed.'}, status=404)

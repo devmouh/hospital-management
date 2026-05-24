@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -7,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+
+from .serializers import UserSerializer, UserUpdateSerializer
 
 User = get_user_model()
 
@@ -91,33 +94,76 @@ class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        return Response({
-            'id':         user.id,
-            'username':   user.username,
-            'email':      user.email,
-            'first_name': user.first_name,
-            'last_name':  user.last_name,
-            'phone':      getattr(user, 'phone', ''),
-            'role':       user.role,
-        })
+        return Response(UserSerializer(request.user).data)
 
     def patch(self, request):
-        user = request.user
-        data = request.data
-
-        user.first_name = data.get('first_name', user.first_name).strip()
-        user.last_name  = data.get('last_name',  user.last_name).strip()
-        user.phone      = data.get('phone', getattr(user, 'phone', '')).strip()
-
-        new_email = data.get('email', '').strip()
-        if new_email and new_email != user.email:
-            if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
-                return Response(
-                    {'detail': 'Cet email est déjà utilisé.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            user.email = new_email
-
-        user.save()
+        serializer = UserUpdateSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
         return Response({'detail': 'Profil mis à jour avec succès.'})
+
+
+# ─── Password Reset ───────────────────────────────────────────────────────────
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        import uuid
+        from datetime import timedelta
+        from .models import Reste_token
+        from .utils import send_email
+
+        email = request.data.get('email', '').strip()
+        # Always return 200 — never reveal whether email exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({'detail': 'Si cet email existe, un lien a été envoyé.'})
+
+        token = uuid.uuid4().hex
+        Reste_token.objects.create(
+            user=user,
+            token=token,
+            expires_at=timezone.now() + timedelta(hours=1)
+        )
+        send_email(user.email, token)
+        return Response({'detail': 'Si cet email existe, un lien a été envoyé.'})
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, token):
+        from .models import Reste_token
+
+        new_password = request.data.get('new_password', '').strip()
+        if len(new_password) < 8:
+            return Response(
+                {'detail': 'Le mot de passe doit contenir au moins 8 caractères.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            reset = Reste_token.objects.get(token=token)
+        except Reste_token.DoesNotExist:
+            return Response(
+                {'detail': 'Token invalide.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if reset.expires_at and reset.expires_at < timezone.now():
+            reset.delete()
+            return Response(
+                {'detail': 'Token expiré.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reset.user.set_password(new_password)
+        reset.user.save()
+        reset.delete()
+        return Response({'detail': 'Mot de passe réinitialisé avec succès.'})

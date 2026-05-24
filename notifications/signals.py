@@ -7,16 +7,7 @@ from .models import Notification
 
 @receiver(post_save, sender=Appointment)
 def appointment_notification(sender, instance, created, **kwargs):
-    """
-    Automatically fires notifications when an Appointment is created or updated.
-
-    - created=True  → notify the doctor (new pending appointment)
-    - CONFIRMED     → notify the parent
-    - CANCELLED     → notify the parent
-    """
-
     if created:
-        # New appointment → notify the doctor
         Notification.objects.create(
             recipient=instance.doctor.user,
             notif_type='REMINDER',
@@ -30,11 +21,11 @@ def appointment_notification(sender, instance, created, **kwargs):
         )
         return
 
-    # Status changes → notify the parent
     if instance.status == 'CONFIRMED':
         already_sent = Notification.objects.filter(
             recipient=instance.patient.parent,
             notif_type='REMINDER',
+            title='Rendez-vous confirmé',
             appointment=instance,
         ).exists()
         if not already_sent:

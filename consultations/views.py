@@ -10,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Appointment, Consultation, Diagnostic, Traitement
 from .serializers import CompleteConsultationSerializer
 from users.models import Patients, Doctors, TraceAction
-from users.permissions import IsAdmin, IsDoctor, IsParent
+from users.permissions import IsAdmin, IsDoctor, IsParent, IsAdminOrSecretaire
 
 
 def _log(user, action, table=""):
@@ -18,7 +18,9 @@ def _log(user, action, table=""):
 
 
 class CreateAppointmentView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    # CHANGED: was IsAdmin only — now IsAdminOrSecretaire
+    # because SQL shows secretaires create appointments (sec.fatima, sec.karima)
+    permission_classes = [IsAuthenticated, IsAdminOrSecretaire]
 
     def post(self, request):
         doctor_id  = request.data.get('doctor_id')
@@ -28,7 +30,10 @@ class CreateAppointmentView(APIView):
         reason     = request.data.get('reason', '').strip()
 
         if not all([doctor_id, patient_id, date_rdv]):
-            return Response({'detail': 'doctor_id, patient_id et date_rdv sont requis.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'doctor_id, patient_id et date_rdv sont requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         doctor  = get_object_or_404(Doctors,  id=doctor_id)
         patient = get_object_or_404(Patients, id=patient_id)
@@ -39,16 +44,23 @@ class CreateAppointmentView(APIView):
             status='PENDING', created_by=request.user,
         )
         _log(request.user, 'CREATE_APPOINTMENT', 'Appointment')
-        return Response({'detail': 'Rendez-vous créé avec succès.', 'appointment_id': appointment.id}, status=status.HTTP_201_CREATED)
+        return Response(
+            {'detail': 'Rendez-vous créé avec succès.', 'appointment_id': appointment.id},
+            status=status.HTTP_201_CREATED
+        )
 
 
 class CancelAppointmentView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    # CHANGED: was IsAdmin only — now IsAdminOrSecretaire
+    permission_classes = [IsAuthenticated, IsAdminOrSecretaire]
 
     def patch(self, request, appointment_id):
         appointment = get_object_or_404(Appointment, id=appointment_id)
         if appointment.status == 'COMPLETED':
-            return Response({'detail': "Impossible d'annuler une consultation déjà terminée."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': "Impossible d'annuler une consultation déjà terminée."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         appointment.status = 'CANCELLED'
         appointment.save()
         _log(request.user, 'CANCEL_APPOINTMENT', 'Appointment')
@@ -63,7 +75,10 @@ class CompleteConsultationView(APIView):
         if appointment.doctor.user != request.user:
             raise PermissionDenied
         if appointment.status in ('COMPLETED', 'CANCELLED'):
-            return Response({'detail': 'Ce rendez-vous ne peut plus être modifié.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'Ce rendez-vous ne peut plus être modifié.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         serializer = CompleteConsultationSerializer(data=request.data)
         if not serializer.is_valid():
@@ -77,7 +92,8 @@ class CompleteConsultationView(APIView):
             with transaction.atomic():
                 consultation = Consultation.objects.create(
                     appointment=appointment,
-                    poids=c_data['poids'], taille=c_data['taille'],
+                    poids=c_data['poids'],
+                    taille=c_data['taille'],
                     temperature=c_data.get('temperature', 37.0),
                     observation=c_data.get('observation', ''),
                 )
@@ -91,16 +107,24 @@ class CompleteConsultationView(APIView):
                 )
                 Traitement.objects.create(
                     consultation=consultation,
-                    medicament=t_data['medicament'], dose=t_data['dose'],
-                    duree=t_data['duree'], instructions=t_data.get('instructions', ''),
+                    medicament=t_data['medicament'],
+                    dose=t_data['dose'],
+                    duree=t_data['duree'],
+                    instructions=t_data.get('instructions', ''),
                 )
                 appointment.status = 'COMPLETED'
                 appointment.save()
                 _log(request.user, 'CREATE_CONSULTATION', 'Consultation')
         except Exception as e:
-            return Response({'detail': f"Erreur : {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'detail': f"Erreur : {e}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        return Response({'detail': 'Consultation enregistrée avec succès.'}, status=status.HTTP_201_CREATED)
+        return Response(
+            {'detail': 'Consultation enregistrée avec succès.'},
+            status=status.HTTP_201_CREATED
+        )
 
 
 class PatientHistoryView(APIView):
@@ -118,34 +142,45 @@ class PatientHistoryView(APIView):
         for a in appointments:
             consultation = getattr(a, 'consultation', None)
             entry = {
-                'appointment_id': a.id, 'date_rdv': a.date_rdv,
-                'motif': a.motif, 'reason': a.reason, 'consultation': None,
+                'appointment_id': a.id,
+                'date_rdv':       a.date_rdv,
+                'motif':          a.motif,
+                'reason':         a.reason,
+                'consultation':   None,
             }
             if consultation:
                 entry['consultation'] = {
-                    'id': consultation.id,
+                    'id':                consultation.id,
                     'date_consultation': consultation.date_consultation,
-                    'poids': consultation.poids, 'taille': consultation.taille,
-                    'temperature': consultation.temperature, 'observation': consultation.observation,
+                    'poids':             consultation.poids,
+                    'taille':            consultation.taille,
+                    'temperature':       consultation.temperature,
+                    'observation':       consultation.observation,
                     'diagnostics': [
                         {
-                            'nom_maladie': d.nom_maladie,
-                            'type_maladie': d.get_type_maladie_display(),
-                            'gravite': d.get_gravite_display(),
+                            'nom_maladie':         d.nom_maladie,
+                            'type_maladie':        d.get_type_maladie_display(),
+                            'gravite':             d.get_gravite_display(),
                             'commentaire_medical': d.commentaire_medical,
-                            'explication_parent': d.explication_parent,
+                            'explication_parent':  d.explication_parent,
                         } for d in consultation.diagnostics.all()
                     ],
                     'traitements': [
                         {
-                            'medicament': t.medicament, 'dose': t.dose,
-                            'duree': t.duree, 'instructions': t.instructions,
+                            'medicament':   t.medicament,
+                            'dose':         t.dose,
+                            'duree':        t.duree,
+                            'instructions': t.instructions,
                         } for t in consultation.traitements.all()
                     ],
                 }
             history.append(entry)
 
         return Response({
-            'patient': {'id': patient.id, 'first_name': patient.first_name, 'last_name': patient.last_name},
+            'patient': {
+                'id':         patient.id,
+                'first_name': patient.first_name,
+                'last_name':  patient.last_name,
+            },
             'history': history,
         })

@@ -39,8 +39,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 
 class DoctorSerializer(serializers.ModelSerializer):
-    user       = UserSerializer(read_only=True)
-    specialty  = SpecialtySerializer(read_only=True)
+    user         = UserSerializer(read_only=True)
+    specialty    = SpecialtySerializer(read_only=True)
     specialty_id = serializers.PrimaryKeyRelatedField(
         queryset=Specialty.objects.all(),
         source='specialty',
@@ -49,8 +49,12 @@ class DoctorSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Doctors
-        fields = ['id', 'user', 'specialty', 'specialty_id', 'bio', 'ville', 'horaire_travail', 'photo', 'actif']
+        model  = Doctors
+        fields = ['id', 'user', 'specialty', 'specialty_id',
+                  'bio', 'ville', 'horaire_travail', 'photo', 'actif']
+
+
+class PatientSerializer(serializers.ModelSerializer):
     parent_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -60,15 +64,17 @@ class DoctorSerializer(serializers.ModelSerializer):
             'parent', 'parent_name', 'telephone_parent', 'email',
             'groupe_sanguin', 'date_creation_dossier',
         ]
-        read_only_fields = ['id', 'parent', 'parent_name', 'date_creation_dossier']     
+        read_only_fields = ['id', 'parent', 'parent_name', 'date_creation_dossier']
+
     def get_parent_name(self, obj):
         return f"{obj.parent.first_name} {obj.parent.last_name}"
 
 
 class PatientCreateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Patients
-        fields = ['first_name', 'last_name', 'birth_date', 'gender']
+        model  = Patients
+        fields = ['first_name', 'last_name', 'birth_date', 'gender',
+                  'groupe_sanguin', 'telephone_parent', 'email']
 
     def create(self, validated_data):
         validated_data['parent'] = self.context['request'].user
@@ -79,5 +85,5 @@ class TraceActionSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
 
     class Meta:
-        model = TraceAction
+        model  = TraceAction
         fields = ['id', 'user', 'action', 'table_concernee', 'timestamp']
