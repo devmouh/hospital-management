@@ -115,6 +115,9 @@ DATABASES = {
         'PASSWORD': 'projet2026',
         'HOST': 'localhost',
         'PORT': '5432',
+        'OPTIONS': {
+            'client_encoding': 'UTF8',
+        },
     }
 }
 
@@ -178,3 +181,4 @@ EMAIL_HOST_USER = 'your email'
 EMAIL_HOST_PASSWORD = 'your email host password'
 
 AUTH_USER_MODEL = 'users.Users'
+DEFAULT_CHARSET = "utf-8"

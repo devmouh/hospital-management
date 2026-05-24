@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.core.exceptions import PermissionDenied
+from django.utils.dateparse import parse_datetime
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -18,8 +19,6 @@ def _log(user, action, table=""):
 
 
 class CreateAppointmentView(APIView):
-    # CHANGED: was IsAdmin only — now IsAdminOrSecretaire
-    # because SQL shows secretaires create appointments (sec.fatima, sec.karima)
     permission_classes = [IsAuthenticated, IsAdminOrSecretaire]
 
     def post(self, request):
@@ -38,9 +37,16 @@ class CreateAppointmentView(APIView):
         doctor  = get_object_or_404(Doctors,  id=doctor_id)
         patient = get_object_or_404(Patients, id=patient_id)
 
+        parsed_date = parse_datetime(str(date_rdv))
+        if not parsed_date:
+            return Response(
+                {'detail': 'Format date_rdv invalide. Utilisez: 2026-06-05T14:00:00Z'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         appointment = Appointment.objects.create(
             doctor=doctor, patient=patient,
-            date_rdv=date_rdv, motif=motif, reason=reason,
+            date_rdv=parsed_date, motif=motif, reason=reason,
             status='PENDING', created_by=request.user,
         )
         _log(request.user, 'CREATE_APPOINTMENT', 'Appointment')
@@ -51,7 +57,6 @@ class CreateAppointmentView(APIView):
 
 
 class CancelAppointmentView(APIView):
-    # CHANGED: was IsAdmin only — now IsAdminOrSecretaire
     permission_classes = [IsAuthenticated, IsAdminOrSecretaire]
 
     def patch(self, request, appointment_id):
