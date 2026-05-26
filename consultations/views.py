@@ -189,3 +189,4 @@ class PatientHistoryView(APIView):
             },
             'history': history,
         })
+    
