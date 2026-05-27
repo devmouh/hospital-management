@@ -350,3 +350,195 @@ class AdminAppointmentStatusView(APIView):
         appointment.save()
         _log(request.user, f'UPDATE_APPOINTMENT_STATUS:{new_status}', 'Appointment')
         return Response({'detail': 'Statut mis à jour.', 'status': new_status})
+    from rest_framework.permissions import IsAuthenticated
+ 
+ 
+# ── Add this permission class at the top of admin_panel/views.py ──────────────
+ 
+class IsAdminOrSecretaire(IsAuthenticated):
+    """Allows access to ADMIN and SECRETAIRE roles."""
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        return getattr(request.user, 'role', '') in ('ADMIN', 'SECRETAIRE')
+ 
+ 
+# ── Add these views at the BOTTOM of admin_panel/views.py ─────────────────────
+ 
+class SecretaireAppointmentListView(APIView):
+    """
+    GET  /api/admin-panel/sec/appointments/        — list + filter appointments
+    POST /api/admin-panel/sec/appointments/create/ — create new appointment
+    """
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def get(self, request):
+        from consultations.models import Appointment
+        appointments = (
+            Appointment.objects
+            .select_related('doctor__user', 'patient')
+            .order_by('-date_rdv')
+        )
+ 
+        status_filter = request.query_params.get('status', '').strip()
+        date_filter   = request.query_params.get('date', '').strip()
+        doctor_name   = request.query_params.get('doctor', '').strip()
+        patient_name  = request.query_params.get('patient', '').strip()
+ 
+        if status_filter and status_filter != 'ALL':
+            appointments = appointments.filter(status=status_filter)
+        if date_filter:
+            appointments = appointments.filter(date_rdv__date=date_filter)
+        if doctor_name:
+            appointments = appointments.filter(
+                Q(doctor__user__last_name__icontains=doctor_name) |
+                Q(doctor__user__first_name__icontains=doctor_name)
+            )
+        if patient_name:
+            appointments = appointments.filter(
+                Q(patient__first_name__icontains=patient_name) |
+                Q(patient__last_name__icontains=patient_name)
+            )
+ 
+        return Response({
+            'appointments': AdminAppointmentSerializer(appointments, many=True).data,
+            'total': appointments.count(),
+        })
+ 
+ 
+class SecretaireAppointmentCreateView(APIView):
+    """POST /api/admin-panel/sec/appointments/create/"""
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def post(self, request):
+        from consultations.models import Appointment
+        from users.models import Doctors, Patients
+ 
+        doctor_id  = request.data.get('doctor_id')
+        patient_id = request.data.get('patient_id')
+        date_rdv   = request.data.get('date_rdv')
+        motif      = request.data.get('motif', '')
+ 
+        if not all([doctor_id, patient_id, date_rdv]):
+            return Response(
+                {'detail': 'doctor_id, patient_id and date_rdv are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        doctor  = get_object_or_404(Doctors, id=doctor_id)
+        patient = get_object_or_404(Patients, id=patient_id)
+ 
+        appointment = Appointment.objects.create(
+            doctor=doctor,
+            patient=patient,
+            date_rdv=date_rdv,
+            motif=motif,
+            status='PENDING',
+            created_by=request.user,
+        )
+        _log(request.user, 'CREATE_APPOINTMENT', 'Appointment')
+        return Response(AdminAppointmentSerializer(appointment).data, status=status.HTTP_201_CREATED)
+ 
+ 
+class SecretaireAppointmentCancelView(APIView):
+    """PATCH /api/admin-panel/sec/appointments/<id>/cancel/"""
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def patch(self, request, appointment_id):
+        from consultations.models import Appointment
+        appointment = get_object_or_404(Appointment, id=appointment_id)
+ 
+        if appointment.status == 'COMPLETED':
+            return Response(
+                {'detail': 'Cannot cancel a completed appointment.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        appointment.status = 'CANCELLED'
+        appointment.save()
+        _log(request.user, 'CANCEL_APPOINTMENT', 'Appointment')
+        return Response({'detail': 'Appointment cancelled.', 'status': 'CANCELLED'})
+ 
+ 
+class SecretaireAppointmentConfirmView(APIView):
+    """PATCH /api/admin-panel/sec/appointments/<id>/confirm/"""
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def patch(self, request, appointment_id):
+        from consultations.models import Appointment
+        appointment = get_object_or_404(Appointment, id=appointment_id)
+ 
+        if appointment.status not in ('PENDING',):
+            return Response(
+                {'detail': 'Only PENDING appointments can be confirmed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+ 
+        appointment.status = 'CONFIRMED'
+        appointment.save()
+        _log(request.user, 'CONFIRM_APPOINTMENT', 'Appointment')
+        return Response({'detail': 'Appointment confirmed.', 'status': 'CONFIRMED'})
+ 
+ 
+class SecretaireDashboardView(APIView):
+    """GET /api/admin-panel/sec/dashboard/ — stats for secretaire home screen"""
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def get(self, request):
+        from consultations.models import Appointment
+        from django.utils import timezone
+        today = timezone.now().date()
+ 
+        total_appointments   = Appointment.objects.count()
+        today_appointments   = Appointment.objects.filter(date_rdv__date=today).count()
+        pending_appointments = Appointment.objects.filter(status='PENDING').count()
+        total_patients       = Patients.objects.count()
+        total_doctors        = Doctors.objects.filter(actif=True).count()
+ 
+        recent = (
+            Appointment.objects
+            .select_related('doctor__user', 'patient')
+            .order_by('-date_rdv')[:10]
+        )
+ 
+        today_list = (
+            Appointment.objects
+            .select_related('doctor__user', 'patient')
+            .filter(date_rdv__date=today)
+            .order_by('date_rdv')
+        )
+ 
+        return Response({
+            'stats': {
+                'total_appointments':   total_appointments,
+                'today_appointments':   today_appointments,
+                'pending_appointments': pending_appointments,
+                'total_patients':       total_patients,
+                'total_doctors':        total_doctors,
+            },
+            'recent_appointments': AdminAppointmentSerializer(recent, many=True).data,
+            'today_appointments':  AdminAppointmentSerializer(today_list, many=True).data,
+        })
+ 
+ 
+class SecretairePatientListView(APIView):
+    """GET /api/admin-panel/sec/patients/"""
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def get(self, request):
+        patients = Patients.objects.select_related('parent').all()
+        search = request.query_params.get('search', '').strip()
+        if search:
+            patients = patients.filter(
+                Q(first_name__icontains=search) | Q(last_name__icontains=search)
+            )
+        return Response(AdminPatientSerializer(patients, many=True).data)
+ 
+ 
+class SecretaireDoctorListView(APIView):
+    """GET /api/admin-panel/sec/doctors/"""
+    permission_classes = [IsAdminOrSecretaire]
+ 
+    def get(self, request):
+        doctors = Doctors.objects.select_related('user', 'specialty').filter(actif=True)
+        return Response(AdminDoctorSerializer(doctors, many=True).data)
