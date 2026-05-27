@@ -1,20 +1,3 @@
-"""
-restore_data.py
-===============
-Put this file in your project root (same folder as manage.py).
-Run it with: python restore_data.py
-
-What it does:
-  1. Reads your SQL file and fixes all broken French accent characters
-  2. Connects to your PostgreSQL database
-  3. Runs all the INSERT statements cleanly
-  4. Sets correct passwords for all users
-  5. Sets admin/secretaire roles correctly
-
-Usage:
-  python restore_data.py
-"""
-
 import os
 import sys
 import django
@@ -26,8 +9,8 @@ django.setup()
 
 # ── 2. Configuration ──────────────────────────────────────────────────────────
 
-# Put your SQL file name here (must be in the same folder as this script)
-SQL_FILE = 'hospital_db_complete.sql'
+# FIXED: Changed from 'hospital_db_complete.sql' to your English database file
+SQL_FILE = 'hospital_db_english_final.sql'
 
 # Password all users will get after restore
 DEFAULT_PASSWORD = 'hospital123'
@@ -86,7 +69,7 @@ except UnicodeDecodeError:
         sql_content = f.read()
     print("   ⚠ File was latin-1 encoded — converting to UTF-8")
 
-# Fix broken characters
+# Fix broken characters if any remain
 sql_content = fix_encoding(sql_content)
 print("   ✓ Encoding fixed")
 
@@ -142,7 +125,7 @@ for i, stmt in enumerate(statements):
         if 'duplicate' in err_msg or 'unique' in err_msg or 'already exists' in err_msg or 'dupliquée' in err_msg:
             skipped += 1
         else:
-            errors.append(f"  Line ~{i+1}: {str(e)[:120]}")
+            errors.append(f"   Line ~{i+1}: {str(e)[:120]}")
 
 print(f"   ✓ Inserted:  {success}")
 print(f"   ⏭ Skipped (duplicates): {skipped}")

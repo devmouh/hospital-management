@@ -56,6 +56,7 @@ class DoctorSerializer(serializers.ModelSerializer):
 
 class PatientSerializer(serializers.ModelSerializer):
     parent_name = serializers.SerializerMethodField()
+    photo_url   = serializers.SerializerMethodField()
 
     class Meta:
         model = Patients
@@ -63,11 +64,18 @@ class PatientSerializer(serializers.ModelSerializer):
             'id', 'first_name', 'last_name', 'birth_date', 'gender',
             'parent', 'parent_name', 'telephone_parent', 'email',
             'groupe_sanguin', 'date_creation_dossier',
+            'photo', 'photo_url',  # ← NOUVEAU
         ]
-        read_only_fields = ['id', 'parent', 'parent_name', 'date_creation_dossier']
+        read_only_fields = ['id', 'parent', 'parent_name', 'date_creation_dossier', 'photo_url']
 
     def get_parent_name(self, obj):
         return f"{obj.parent.first_name} {obj.parent.last_name}"
+
+    def get_photo_url(self, obj):
+        request = self.context.get('request')
+        if obj.photo and request:
+            return request.build_absolute_uri(obj.photo.url)
+        return None
 
 
 class PatientCreateSerializer(serializers.ModelSerializer):
@@ -79,6 +87,23 @@ class PatientCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['parent'] = self.context['request'].user
         return super().create(validated_data)
+
+
+class SecretaireSerializer(serializers.ModelSerializer):
+    user      = UserSerializer(read_only=True)
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        from .models import Secretaire
+        model  = Secretaire
+        fields = ['id', 'user', 'bureau', 'telephone_interne', 'horaires_service', 'photo', 'photo_url']  # ← NOUVEAU
+        read_only_fields = ['id', 'user', 'photo_url']
+
+    def get_photo_url(self, obj):
+        request = self.context.get('request')
+        if obj.photo and request:
+            return request.build_absolute_uri(obj.photo.url)
+        return None
 
 
 class TraceActionSerializer(serializers.ModelSerializer):

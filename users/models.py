@@ -23,7 +23,7 @@ class Users(AbstractUser):
         ('ADMIN',      'Administrateur'),
         ('DOCTOR',     'Médecin'),
         ('PARENT',     'Parent'),
-        ('SECRETAIRE', 'Secrétaire'),   # NEW
+        ('SECRETAIRE', 'Secrétaire'),
     )
     role    = models.CharField(max_length=15, choices=ROLE_CHOICES)
     phone   = models.CharField(max_length=20, blank=True)
@@ -58,7 +58,7 @@ class Doctors(models.Model):
     horaire_travail       = models.TextField(blank=True)
     actif                 = models.BooleanField(default=True)
     ville                 = models.CharField(max_length=100, blank=True)
-    numero_ordre_medecins = models.CharField(max_length=30, blank=True)  # NEW
+    numero_ordre_medecins = models.CharField(max_length=30, blank=True)
 
     class Meta:
         verbose_name        = "Médecin"
@@ -69,13 +69,13 @@ class Doctors(models.Model):
 
 
 class Secretaire(models.Model):
-    """NEW model — matches users_secretaire table in SQL"""
     user              = models.OneToOneField(
         Users, on_delete=models.CASCADE, related_name='secretaire_profile'
     )
     bureau            = models.CharField(max_length=100, blank=True)
     telephone_interne = models.CharField(max_length=30, blank=True)
     horaires_service  = models.CharField(max_length=100, blank=True)
+    photo             = models.ImageField(upload_to='secretaires/photos/', null=True, blank=True)  # ← NOUVEAU
 
     class Meta:
         verbose_name        = "Secrétaire"
@@ -94,6 +94,7 @@ class Patients(models.Model):
     first_name            = models.CharField(max_length=50)
     last_name             = models.CharField(max_length=50)
     birth_date            = models.DateField(null=True, blank=True)
+    photo                 = models.ImageField(upload_to='patients/photos/', null=True, blank=True)  # ← NOUVEAU
 
     GENDER_CHOICES = (('M', 'Masculin'), ('F', 'Féminin'))
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES, blank=True)
@@ -133,7 +134,7 @@ class TraceAction(models.Model):
     user              = models.ForeignKey(Users, on_delete=models.SET_NULL, null=True, blank=True)
     action            = models.CharField(max_length=100)
     table_concernee   = models.CharField(max_length=100, blank=True)
-    id_enregistrement = models.IntegerField(null=True, blank=True)  # NEW
+    id_enregistrement = models.IntegerField(null=True, blank=True)
     timestamp         = models.DateTimeField(auto_now_add=True)
 
     class Meta:
