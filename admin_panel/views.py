@@ -542,3 +542,19 @@ class SecretaireDoctorListView(APIView):
     def get(self, request):
         doctors = Doctors.objects.select_related('user', 'specialty').filter(actif=True)
         return Response(AdminDoctorSerializer(doctors, many=True).data)
+class SecretaireProfileView(APIView):
+    """GET /api/admin-panel/sec/profile/ — secretary profile with photo"""
+    permission_classes = [IsAdminOrSecretaire]
+
+    def get(self, request):
+        from users.models import Secretaire
+        try:
+            sec = Secretaire.objects.get(user=request.user)
+            return Response({
+                'bureau':            sec.bureau,
+                'telephone_interne': sec.telephone_interne,
+                'horaires_service':  sec.horaires_service,
+                'photo':             sec.photo.name if sec.photo else '',
+            })
+        except Secretaire.DoesNotExist:
+            return Response({})
