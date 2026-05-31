@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Use Case Diagramme - Spécifications Exactes</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background-color: #ffffff;
+    }
+    #wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 15px;
+    }
+    
+    /* Lignes de liaison noires et épurées style draw.io */
+    .mermaid svg .edgePath .path,
+    .mermaid svg .edgePaths .path {
+      stroke: #333333 !important;
+      stroke-width: 1.5px !important;
+    }
+    .mermaid svg .marker {
+      fill: #333333 !important;
+      stroke: #333333 !important;
+    }
+
+    /* Style du texte à l'intérieur des rectangles */
+    .mermaid svg .node .label {
+      color: #000000 !important;
+      font-size: 12px !important;
+      font-weight: 500 !important;
+    }
+  </style>
+  
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'linear'
+      }
+    });
+  </script>
+</head>
+<body>
+
+  <h2>Diagramme de Cas d'Utilisation - Hôpital Pédiatrique (Texte Exact)</h2>
+
+  <div id="wrap">
+    <div class="mermaid">
+flowchart LR
+
+  %% ==========================================
+  %% ACTEURS (DESIGN STICKMAN SANS BOÎTE)
+  %% ==========================================
+  ADMIN["👤<br><b>ADMIN</b>"]
+  SECRETAIRE["👤<br><b>SECRÉTAIRE</b>"]
+  PARENT["👤<br><b>PARENT</b>"]
+  MEDECIN["👤<br><b>MEDECIN</b>"]
+
+  %% ==========================================
+  %% SYSTEM BOUNDARY (CADRE DE L'HÔPITAL)
+  %% ==========================================
+  subgraph Hopital["Hôpital Pédiatrique"]
+    
+    %% --- BLOCS VERTS : ADMIN ---
+    UC1["Créer / modifier / supprimer médecin"]
+    UC2["Gérer les patients"]
+    UC3["Gérer les rendez-vous"]
+    UC4["Voir les traces d'actions (audit)"]
+    UC5["Envoyer une notification"]
+    
+    %% --- BLOC BLEU : LOGIN ---
+    UC_LOGIN["Login"]
+    
+    %% --- BLOCS ORANGE : MEDECIN ---
+    UC6["Consulter dossier patient"]
+    UC7["Enregistrer consultation"]
+    UC8["Ajouter diagnostic"]
+    UC9["Ajouter traitement"]
+    UC10["Uploader un document"]
+    UC11["Envoyer un message au parent"]
+    
+    %% --- BLOCS MAUVES : SECRÉTAIRE & PARENT ---
+    UC12["Créer un rendez-vous"]
+    UC13["Annuler un rendez-vous"]
+    UC14["Voir tous les rendez-vous"]
+    UC15["Envoyer notification au parent"]
+    UC16["Voir ses rendez-vous"]
+    UC17["Recevoir notifications"]
+    UC18["Recevoir messages du médecin"]
+    UC19["Prendre rendez-vous pour l'enfant"]
+
+  end
+
+  %% ==========================================
+  %% LIAISONS RELATIVES À TES SPÉCIFICATIONS
+  %% ==========================================
+  
+  %% Liaisons de l'ADMIN
+  ADMIN --- UC_LOGIN
+  ADMIN --- UC1
+  ADMIN --- UC2
+  ADMIN --- UC3
+  ADMIN --- UC4
+  ADMIN --- UC5
+
+  %% Liaisons de la SECRÉTAIRE
+  SECRETAIRE --- UC_LOGIN
+  SECRETAIRE --- UC12
+  SECRETAIRE --- UC13
+  SECRETAIRE --- UC14
+  SECRETAIRE --- UC6
+  SECRETAIRE --- UC15
+
+  %% Liaisons du PARENT
+  PARENT --- UC_LOGIN
+  PARENT --- UC6
+  PARENT --- UC16
+  PARENT --- UC17
+  PARENT --- UC18
+  PARENT --- UC19
+
+  %% Liaisons du MÉDECIN
+  UC_LOGIN --- MEDECIN
+  UC6 --- MEDECIN
+  UC7 --- MEDECIN
+  UC8 --- MEDECIN
+  UC9 --- MEDECIN
+  UC10 --- MEDECIN
+  UC11 --- MEDECIN
+
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        document.querySelectorAll('.mermaid svg g.node').forEach(node => {
+          const label = node.querySelector('.label');
+          if (label) {
+            const text = label.innerHTML;
+
+            // 1. BLOCS VERTS (Admin)
+            if (text.includes("supprimer médecin") || text.includes("Gérer les patients") || text.includes("Gérer les rendez-vous") || text.includes("traces d'actions") || text.includes("Envoyer une notification")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#C2E7B4', 'important');
+                rect.style.setProperty('stroke', '#5A9E5A', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+            
+            // 2. BLOC BLEU (Login)
+            if (text === "Login") {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#7EA6E0', 'important');
+                rect.style.setProperty('stroke', '#4A7BB0', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+                label.style.setProperty('color', '#ffffff', 'important');
+              }
+            }
+
+            // 3. BLOCS ORANGE / SAUMON (Médecin)
+            if (text.includes("Consulter dossier patient") || text.includes("consultation") || text.includes("diagnostic") || text.includes("traitement") || text.includes("document") || text.includes("message au parent")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#F8CECC', 'important');
+                rect.style.setProperty('stroke', '#B85450', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+
+            // 4. BLOCS MAUVES / ROSE (Secrétaire et Parent)
+            if (text.includes("Créer un rendez-vous") || text.includes("Annuler un rendez-vous") || text.includes("tous les rendez-vous") || text.includes("notification au parent") || text.includes("ses rendez-vous") || text.includes("Recevoir") || text.includes("pour l'enfant")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#E1D5E7', 'important');
+                rect.style.setProperty('stroke', '#9673A6', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+            
+            // Effacement graphique des boîtes par défaut pour les Acteurs Humains
+            if (text.includes("ADMIN") || text.includes("SECRÉTAIRE") || text.includes("PARENT") || text.includes("MEDECIN")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', 'transparent', 'important');
+                rect.style.setProperty('stroke', 'transparent', 'important');
+              }
+            }
+
+          }
+        });
+      }, 600);
+    });
+  </script>
+
+</body>
+</html>

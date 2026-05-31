@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>MCD Clinique</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      background-color: #ffffff;
+    }
+    #wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 15px;
+    }
+    
+    /* Style de base strict pour contours et lignes */
+    .mermaid svg .node rect, 
+    .mermaid svg .node path, 
+    .mermaid svg .node polygon,
+    .mermaid svg .er.entityBox {
+      stroke: #0C447C !important;
+      stroke-width: 2.5px !important;
+    }
+    .mermaid svg .edgePath .path {
+      stroke: #0C447C !important;
+      stroke-width: 1.8px !important;
+    }
+    .mermaid svg .marker path {
+      fill: #0C447C !important;
+      stroke: #0C447C !important;
+    }
+    .mermaid svg .er.entityBox {
+      fill: #ffffff !important;
+    }
+    .mermaid svg .er.attributeBoxText {
+      fill: #1e293b !important;
+    }
+  </style>
+  
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      er: {
+        diagramPadding: 40,
+        layoutDirection: 'TB',
+        minEntityWidth: 170,
+        minEntityHeight: 85,
+        entityPadding: 60,
+        useMaxWidth: true
+      }
+    });
+  </script>
+</head>
+<body>
+
+  <h2>Modèle Conceptuel de Données</h2>
+  <div id="wrap">
+    <div class="mermaid">
+erDiagram
+
+  ADRESSE {
+    int id PK
+    string address_line
+    string region
+    string city
+    string code_postal
+  }
+  SPECIALITE {
+    int id PK
+    string name
+  }
+  JETON_REINITIALISATION {
+    int id PK
+    string token
+    date_time created_at
+    date_time expires_at
+    int user_id FK
+  }
+  UTILISATEUR {
+    int id PK
+    string username
+    string password
+    string first_name
+    string last_name
+    string email
+    string role
+    boolean is_active
+    boolean is_staff
+    boolean is_superuser
+    int address_id FK
+  }
+  MEDECIN {
+    int id PK
+    string bio
+    string ville
+    string telephone
+    string email
+    string horaires_travail
+    string photo
+    string numero_ordre_medecins
+    boolean actif
+    int user_id FK
+    int specialty_id FK
+  }
+  SECRETAIRE {
+    int id PK
+    string bureau
+    string telephone_interne
+    string horaires_service
+    string photo
+    int user_id FK
+  }
+  PARENT {
+    int id PK
+    string telephone
+    string email
+    string profession
+    date date_inscription
+    int user_id FK
+  }
+  PATIENT {
+    int id PK
+    string nom
+    string prenom
+    date date_naissance
+    string sexe
+    string telephone_parent
+    string email
+    string groupe_sanguin
+    string photo
+    date date_creation_dossier
+    int parent_id FK
+  }
+  RENDEZ_VOUS {
+    int id PK
+    date date
+    time heure
+    string statut
+    string motif
+    string reason
+    int patient_id FK
+    int doctor_id FK
+    int parent_id FK
+    int secretary_id FK
+    int created_by_id FK
+  }
+  CONSULTATION {
+    int id PK
+    date date
+    string motif
+    float poids
+    float taille
+    string observations
+    int patient_id FK
+    int doctor_id FK
+  }
+  TRAITEMENT {
+    int id PK
+    string medicament
+    string dose
+    string duree
+    string instructions
+    int consultation_id FK
+    int doctor_id FK
+    int patient_id FK
+  }
+  DIAGNOSTIC {
+    int id PK
+    string nom_maladie
+    string type_maladie
+    string gravite
+    string commentaire
+    string explication_parent
+    int consultation_id FK
+  }
+  ALLERGIE {
+    int id PK
+    string allergene
+    string reaction
+    string description
+    date date_detection
+    int patient_id FK
+  }
+  ANTECEDENT {
+    int id PK
+    string description
+    string type_antecedent
+    date date_declaration
+    int patient_id FK
+  }
+  TRACE_ACTION {
+    int id PK
+    date_time timestamp
+    string action
+    string table_concernee
+    int id_enregistrement
+    int user_id FK
+  }
+  NOTIFICATION {
+    int id PK
+    string type
+    string contenu
+    date_time date_envoi
+    boolean lu
+    int user_id FK
+    int appointment_id FK
+  }
+  MESSAGE {
+    int id PK
+    string contenu
+    date_time date_envoi
+    boolean lu
+    int sender_id FK
+    int receiver_id FK
+  }
+  DOCUMENT {
+    int id PK
+    string nom_fichier
+    string type
+    string url_stockage
+    date_time date_upload
+    int patient_id FK
+    int consultation_id FK
+    int user_id FK
+  }
+
+  %% ==========================================
+  %% LIGNES DE RELATION GROUPÉES PAR COHÉRENCE
+  %% ==========================================
+  
+  %% SYSTÈME DE COMPTES, ADRESSES & ACCÈS (JAUNES & INFRASTRUCTURE)
+  ADRESSE ||--o{ UTILISATEUR : "possede"
+  UTILISATEUR ||--o{ JETON_REINITIALISATION : "demande"
+  UTILISATEUR ||--o{ TRACE_ACTION : "generer"
+
+  %% CORRESPONDANCE DES ACTEURS (ROUGES) TO USERS
+  UTILISATEUR |o--|| SECRETAIRE : "correspondre"
+  MEDECIN }o--|o UTILISATEUR : "correspondre"
+  UTILISATEUR |o--|| PARENT : "correspondre"
+  SPECIALITE ||--o{ MEDECIN : "qualifie"
+
+  %% DOSSIER ADMINISTRATIF PATIENT
+  PARENT ||--o{ PATIENT : "responsable_de"
+  PATIENT ||--o{ ALLERGIE : "a"
+  PATIENT ||--o{ ANTECEDENT : "presente"
+
+  %% CLINIQUE & PLANIFICATION (RENDEZ-VOUS)
+  PARENT ||--o{ RENDEZ_VOUS : "planifier"
+  SECRETAIRE ||--o{ RENDEZ_VOUS : "gerer"
+  MEDECIN ||--o{ RENDEZ_VOUS : "assurer"
+  PATIENT ||--o{ RENDEZ_VOUS : "concerner"
+  UTILISATEUR ||--o{ RENDEZ_VOUS : "cree"
+
+  %% CONSULTATIONS & SUIVI MÉDICAL
+  PATIENT ||--o{ CONSULTATION : "effectuer"
+  MEDECIN ||--o{ CONSULTATION : "conduire"
+  CONSULTATION ||--o{ DIAGNOSTIC : "generer"
+  CONSULTATION ||--o{ TRAITEMENT : "prescrire"
+  MEDECIN ||--o{ TRAITEMENT : "prescrire"
+  PATIENT ||--o{ TRAITEMENT : "recoit"
+
+  %% COMMUNICATIONS, DOCS & NOTIFICATIONS
+  PATIENT ||--o{ DOCUMENT : "possede"
+  CONSULTATION ||--o{ DOCUMENT : "joint"
+  UTILISATEUR ||--o{ DOCUMENT : "ajouter"
+  UTILISATEUR ||--o{ NOTIFICATION : "recoit"
+  RENDEZ_VOUS ||--o{ NOTIFICATION : "declenche"
+  UTILISATEUR ||--o{ MESSAGE : "envoie"
+  UTILISATEUR ||--o{ MESSAGE : "recoit"
+
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        const rouges = ["PATIENT", "MEDECIN", "PARENT", "SECRETAIRE", "SPECIALITE"];
+        const jaunes = ["UTILISATEUR", "MESSAGE", "NOTIFICATION", "TRACE_ACTION", "ADRESSE", "JETON_REINITIALISATION"];
+        const bleus  = ["RENDEZ_VOUS", "CONSULTATION", "TRAITEMENT", "DIAGNOSTIC", "ALLERGIE", "ANTECEDENT", "DOCUMENT"];
+
+        document.querySelectorAll('.mermaid svg g').forEach(node => {
+          const label = node.querySelector('text.er.entityLabel, text');
+          if (label) {
+            const currentTitle = label.textContent.trim();
+
+            if (rouges.includes(currentTitle) || jaunes.includes(currentTitle) || bleus.includes(currentTitle)) {
+              const headerRect = node.querySelector('rect');
+              if (headerRect) {
+                if (rouges.includes(currentTitle)) {
+                  headerRect.style.setProperty('fill', '#8B0000', 'important');
+                } else if (jaunes.includes(currentTitle)) {
+                  headerRect.style.setProperty('fill', '#B8860B', 'important');
+                } else if (bleus.includes(currentTitle)) {
+                  headerRect.style.setProperty('fill', '#0C447C', 'important');
+                }
+                label.style.setProperty('fill', '#ffffff', 'important');
+                label.style.setProperty('font-weight', 'bold', 'important');
+              }
+            }
+          }
+        });
+      }, 600);
+    });
+  </script>
+
+</body>
+</html>

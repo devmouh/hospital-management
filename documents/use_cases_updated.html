@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Diagramme de Cas d'Utilisation - Hôpital Pédiatrique</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 30px;
+      background-color: #f8fafc;
+      color: #1e293b;
+    }
+    h2 {
+      color: #0c447c;
+      border-bottom: 3px solid #0c447c;
+      padding-bottom: 10px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      padding: 20px;
+      margin-top: 20px;
+    }
+    #wrap {
+      width: 100%;
+      overflow-x: auto;
+      padding: 10px 0;
+    }
+    
+    /* Style épuré draw.io pour liaisons */
+    .mermaid svg .edgePath .path,
+    .mermaid svg .edgePaths .path {
+      stroke: #475569 !important;
+      stroke-width: 1.6px !important;
+    }
+    .mermaid svg .marker {
+      fill: #475569 !important;
+      stroke: #475569 !important;
+    }
+    .mermaid svg .node .label {
+      color: #0f172a !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+    }
+  </style>
+  
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.6/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'default',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'linear'
+      }
+    });
+  </script>
+</head>
+<body>
+
+  <h2>Diagramme de Cas d'Utilisation - Répartition Administrative</h2>
+  <p>Ce diagramme détaille la séparation des cas d'utilisation opérationnels de l'Hôpital Pédiatrique. Les rôles d'<strong>Admin</strong> (gestion système/audit) et de <strong>Secrétaire</strong> (accueil/secrétariat clinique) sont clairement divisés pour correspondre à votre stratégie d'organisation.</p>
+  
+  <div class="card">
+    <div id="wrap">
+      <div class="mermaid">
+flowchart LR
+
+  %% ==========================================
+  %% ACTEURS (DESIGN STICKMAN DEPOUILLE)
+  %% ==========================================
+  ADMIN["👤<br><b>ADMINSTRATEUR</b><br>(Django Web)"]
+  SECRETAIRE["👤<br><b>SECRÉTAIRE</b><br>(Django Web)"]
+  PARENT["👤<br><b>PARENT</b><br>(Flutter Mobile)"]
+  MEDECIN["👤<br><b>MÉDECIN</b><br>(Flutter Mobile)"]
+
+  %% ==========================================
+  %% SYSTEM BOUNDARY
+  %% ==========================================
+  subgraph Hopital["Système de Gestion Clinique Pédiatrique"]
+    
+    %% --- SECTOR 1: SECURITY & SYSTEM ---
+    UC_LOGIN["Connexion au Système (Auth JWT / Django Session)"]
+    UC_AUDIT["Consulter les logs d'audit (TraceAction)"]
+    
+    %% --- SECTOR 2: ADMIN STAFFING ---
+    UC_MGDOC["Gérer les médecins (Ajouter, Modifier, Désactiver)"]
+    UC_MGSPEC["Gérer les spécialités pédiatriques"]
+    
+    %% --- SECTOR 3: SECRETARIAT & OPERATIONS ---
+    UC_REGPARENT["Enregistrer les dossiers parents et enfants"]
+    UC_BOOKAPP["Planifier / Gérer tous les Rendez-vous"]
+    UC_CANCELAPP["Annuler / Reporter des consultations"]
+    UC_NOTIFPARENT["Envoyer des notifications de rappel"]
+
+    %% --- SECTOR 4: DOCTOR (CLINICAL WORKFLOW) ---
+    UC_STAT["Consulter le Tableau de bord (Stats)"]
+    UC_PATIENT["Rechercher et consulter un dossier patient"]
+    UC_RECORD["Saisir une Consultation (Poids, Taille, Température, Observation)"]
+    UC_DIAG["Ajouter des Diagnostics (Maladies)"]
+    UC_TRAIT["Prescrire des Traitements (Médicaments)"]
+    
+    %% --- SECTOR 5: PARENT (PATIENT WORKFLOW) ---
+    UC_CHILDP["Consulter le dossier de son enfant"]
+    UC_REQAPP["Demander / Réserver un rendez-vous pédiatrique"]
+    UC_RECNOTIF["Recevoir des notifications et alertes"]
+
+  end
+
+  %% ==========================================
+  %% LIAISONS ACTEURS - CAS
+  %% ==========================================
+  
+  %% Admin links
+  ADMIN --- UC_LOGIN
+  ADMIN --- UC_AUDIT
+  ADMIN --- UC_MGDOC
+  ADMIN --- UC_MGSPEC
+
+  %% Secrétaire links
+  SECRETAIRE --- UC_LOGIN
+  SECRETAIRE --- UC_REGPARENT
+  SECRETAIRE --- UC_BOOKAPP
+  SECRETAIRE --- UC_CANCELAPP
+  SECRETAIRE --- UC_NOTIFPARENT
+
+  %% Médecin links
+  MEDECIN --- UC_LOGIN
+  MEDECIN --- UC_STAT
+  MEDECIN --- UC_PATIENT
+  MEDECIN --- UC_RECORD
+  MEDECIN --- UC_DIAG
+  MEDECIN --- UC_TRAIT
+
+  %% Parent links
+  PARENT --- UC_LOGIN
+  PARENT --- UC_CHILDP
+  PARENT --- UC_REQAPP
+  PARENT --- UC_RECNOTIF
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        document.querySelectorAll('.mermaid svg g.node').forEach(node => {
+          const label = node.querySelector('.label');
+          if (label) {
+            const text = label.innerHTML;
+
+            // 1. BLOCS ROUGES - Sécurité et Administration (Admin)
+            if (text.includes("logs d'audit") || text.includes("médecins") || text.includes("spécialités")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#fee2e2', 'important');
+                rect.style.setProperty('stroke', '#b91c1c', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+            
+            // 2. BLOCS BLEUS - Secrétariat (Secrétaire)
+            if (text.includes("dossiers parents") || text.includes("Planifier") || text.includes("Annuler") || text.includes("rappel")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#e0f2fe', 'important');
+                rect.style.setProperty('stroke', '#0369a1', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+
+            // 3. BLOCS ORANGE - Médical (Médecin)
+            if (text.includes("Tableau de bord") || text.includes("dossier patient") || text.includes("Saisir") || text.includes("Diagnostics") || text.includes("Traitements")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#ffedd5', 'important');
+                rect.style.setProperty('stroke', '#c2410c', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+
+            // 4. BLOCS JAUNES - Parents
+            if (text.includes("enfant") || text.includes("Demander") || text.includes("Recevoir")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#fef9c3', 'important');
+                rect.style.setProperty('stroke', '#a16207', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+            
+            // 5. Auth (Gris neutre)
+            if (text.includes("Connexion")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', '#f1f5f9', 'important');
+                rect.style.setProperty('stroke', '#475569', 'important');
+                rect.style.setProperty('rx', '8', 'important');
+              }
+            }
+            
+            // Transparence pour les acteurs
+            if (text.includes("ADMINSTRATEUR") || text.includes("SECRÉTAIRE") || text.includes("PARENT") || text.includes("MÉDECIN")) {
+              const rect = node.querySelector('rect');
+              if (rect) {
+                rect.style.setProperty('fill', 'transparent', 'important');
+                rect.style.setProperty('stroke', 'transparent', 'important');
+              }
+            }
+
+          }
+        });
+      }, 600);
+    });
+  </script>
+
+</body>
+</html>
