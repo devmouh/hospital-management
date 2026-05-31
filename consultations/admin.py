@@ -6,6 +6,12 @@ from .models import Appointment, Consultation, Diagnostic, Traitement
 def is_sec(user):
     return getattr(user, 'role', '') == 'SECRETAIRE'
 
+def is_doctor(user):
+    return getattr(user, 'role', '') == 'DOCTOR'
+
+def is_admin(user):
+    return getattr(user, 'role', '') == 'ADMIN'
+
 
 class DiagnosticInline(admin.TabularInline):
     model  = Diagnostic
@@ -14,13 +20,13 @@ class DiagnosticInline(admin.TabularInline):
     show_change_link = True
 
     def has_add_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
 
 class TraitementInline(admin.TabularInline):
@@ -30,13 +36,13 @@ class TraitementInline(admin.TabularInline):
     show_change_link = True
 
     def has_add_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
 
 class ConsultationInline(admin.StackedInline):
@@ -48,13 +54,13 @@ class ConsultationInline(admin.StackedInline):
     show_change_link = True
 
     def has_add_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
 
 @admin.register(Appointment)
@@ -70,7 +76,6 @@ class AppointmentAdmin(admin.ModelAdmin):
 
     def get_readonly_fields(self, request, obj=None):
         base = ['created_at', 'updated_at']
-        # secretaire cannot edit a completed appointment
         if is_sec(request.user) and obj and obj.status == 'COMPLETED':
             return base + ['doctor', 'patient', 'date_rdv', 'heure', 'motif', 'reason', 'status']
         return base
@@ -96,13 +101,13 @@ class AppointmentAdmin(admin.ModelAdmin):
         return True
 
     def has_add_permission(self, request):
-        return True  # both admin and secretaire can add
+        return True
 
     def has_change_permission(self, request, obj=None):
-        return True  # both can change
+        return True
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)  # only admin can delete
+        return not is_sec(request.user)
 
     def save_model(self, request, obj, form, change):
         if not change:
@@ -149,19 +154,20 @@ class ConsultationAdmin(admin.ModelAdmin):
     inlines         = [DiagnosticInline, TraitementInline]
 
     def has_module_perms(self, request):
-        return not is_sec(request.user)
+        # Admin can see the section, doctor can see it — secretaire cannot
+        return is_doctor(request.user) or is_admin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user) or is_admin(request.user)
 
     def has_add_permission(self, request):
-        return not is_sec(request.user)
+        return is_doctor(request.user)  # admin cannot add
 
     def has_change_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)  # admin cannot modify
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)  # admin cannot delete
 
     def patient_name(self, obj):
         return f"{obj.appointment.patient.first_name} {obj.appointment.patient.last_name}"
@@ -184,19 +190,19 @@ class DiagnosticAdmin(admin.ModelAdmin):
     search_fields = ('nom_maladie', 'consultation__appointment__patient__last_name')
 
     def has_module_perms(self, request):
-        return not is_sec(request.user)
+        return is_doctor(request.user) or is_admin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user) or is_admin(request.user)
 
     def has_add_permission(self, request):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def patient_name(self, obj):
         p = obj.consultation.appointment.patient
@@ -215,19 +221,19 @@ class TraitementAdmin(admin.ModelAdmin):
     search_fields = ('medicament', 'consultation__appointment__patient__last_name')
 
     def has_module_perms(self, request):
-        return not is_sec(request.user)
+        return is_doctor(request.user) or is_admin(request.user)
 
     def has_view_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user) or is_admin(request.user)
 
     def has_add_permission(self, request):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_change_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def has_delete_permission(self, request, obj=None):
-        return not is_sec(request.user)
+        return is_doctor(request.user)
 
     def patient_name(self, obj):
         p = obj.consultation.appointment.patient
