@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.db import transaction
 from django.core.exceptions import PermissionDenied
 from django.utils.dateparse import parse_datetime
+from datetime import timedelta
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -30,7 +31,7 @@ class CreateAppointmentView(APIView):
 
         if not all([doctor_id, patient_id, date_rdv]):
             return Response(
-                {'detail': 'doctor_id, patient_id et date_rdv sont requis.'},
+                {'detail': 'doctor_id, patient_id and date_rdv are required.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -40,9 +41,40 @@ class CreateAppointmentView(APIView):
         parsed_date = parse_datetime(str(date_rdv))
         if not parsed_date:
             return Response(
-                {'detail': 'Format date_rdv invalide. Utilisez: 2026-06-05T14:00:00Z'},
+                {'detail': 'Invalid date format. Use: 2026-06-05T14:00:00'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # ── DUPLICATE CHECK ──────────────────────────────────────────────────
+        # Block if same doctor already has an appointment within 30 minutes
+        window_start = parsed_date - timedelta(minutes=30)
+        window_end   = parsed_date + timedelta(minutes=30)
+
+        doctor_conflict = Appointment.objects.filter(
+            doctor=doctor,
+            date_rdv__range=(window_start, window_end),
+            status__in=('PENDING', 'CONFIRMED')
+        ).exists()
+
+        if doctor_conflict:
+            return Response(
+                {'detail': 'This doctor already has an appointment within 30 minutes of this time. Please choose a different time.'},
+                status=status.HTTP_409_CONFLICT
+            )
+
+        # Block if same patient already has an appointment within 30 minutes
+        patient_conflict = Appointment.objects.filter(
+            patient=patient,
+            date_rdv__range=(window_start, window_end),
+            status__in=('PENDING', 'CONFIRMED')
+        ).exists()
+
+        if patient_conflict:
+            return Response(
+                {'detail': 'This patient already has an appointment within 30 minutes of this time. Please choose a different time.'},
+                status=status.HTTP_409_CONFLICT
+            )
+        # ────────────────────────────────────────────────────────────────────
 
         appointment = Appointment.objects.create(
             doctor=doctor, patient=patient,
@@ -51,7 +83,7 @@ class CreateAppointmentView(APIView):
         )
         _log(request.user, 'CREATE_APPOINTMENT', 'Appointment')
         return Response(
-            {'detail': 'Rendez-vous créé avec succès.', 'appointment_id': appointment.id},
+            {'detail': 'Appointment created successfully.', 'appointment_id': appointment.id},
             status=status.HTTP_201_CREATED
         )
 
@@ -63,25 +95,29 @@ class CancelAppointmentView(APIView):
         appointment = get_object_or_404(Appointment, id=appointment_id)
         if appointment.status == 'COMPLETED':
             return Response(
-                {'detail': "Impossible d'annuler une consultation déjà terminée."},
+                {'detail': 'Cannot cancel a completed appointment.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         appointment.status = 'CANCELLED'
         appointment.save()
         _log(request.user, 'CANCEL_APPOINTMENT', 'Appointment')
-        return Response({'detail': 'Rendez-vous annulé.'})
+        return Response({'detail': 'Appointment cancelled.'})
 
 
 class CompleteConsultationView(APIView):
+    # ── ONLY DOCTORS can complete consultations — admin blocked ──────────────
     permission_classes = [IsAuthenticated, IsDoctor]
 
     def post(self, request, appointment_id):
         appointment = get_object_or_404(Appointment, id=appointment_id)
+
+        # Doctor can only complete their own appointments
         if appointment.doctor.user != request.user:
-            raise PermissionDenied
+            raise PermissionDenied("You can only complete your own appointments.")
+
         if appointment.status in ('COMPLETED', 'CANCELLED'):
             return Response(
-                {'detail': 'Ce rendez-vous ne peut plus être modifié.'},
+                {'detail': 'This appointment can no longer be modified.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -122,12 +158,12 @@ class CompleteConsultationView(APIView):
                 _log(request.user, 'CREATE_CONSULTATION', 'Consultation')
         except Exception as e:
             return Response(
-                {'detail': f"Erreur : {e}"},
+                {'detail': f'Error: {e}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
         return Response(
-            {'detail': 'Consultation enregistrée avec succès.'},
+            {'detail': 'Consultation completed successfully.'},
             status=status.HTTP_201_CREATED
         )
 
@@ -189,4 +225,3 @@ class PatientHistoryView(APIView):
             },
             'history': history,
         })
-    
